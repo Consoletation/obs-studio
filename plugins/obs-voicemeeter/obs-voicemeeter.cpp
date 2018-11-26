@@ -725,7 +725,7 @@ bool obs_module_load(void)
 	}
 	//long opts = VBVMR_AUDIOCALLBACK_IN;//VBVMR_AUDIOCALLBACK_MAIN | VBVMR_AUDIOCALLBACK_IN | VBVMR_AUDIOCALLBACK_OUT;
 	//long opts = VBVMR_AUDIOCALLBACK_MAIN | VBVMR_AUDIOCALLBACK_IN | VBVMR_AUDIOCALLBACK_OUT;
-	long opts = VBVMR_AUDIOCALLBACK_IN | VBVMR_AUDIOCALLBACK_OUT;
+	long opts = VBVMR_AUDIOCALLBACK_IN | VBVMR_AUDIOCALLBACK_OUT | VBVMR_AUDIOCALLBACK_MAIN;
 	char application_name[64] = "obs-voicemeeter";
 	ret = iVMR.VBVMR_AudioCallbackRegister(opts, audioCallback, NULL, application_name);
 	switch (ret) {
@@ -762,6 +762,10 @@ bool obs_module_load(void)
 void obs_module_unload()
 {
 	blog(LOG_INFO, "client logging out");
+	OBSBufferInsertIn.Disconnect();
+	OBSBufferInsertOut.Disconnect();
+	OBSBufferMain.Disconnect();
+
 	OBSBufferInsertIn.Clear([](VBVMR_T_AUDIOBUFFER_TS &buf) {
 		for (int i = 0; i < buf.data.audiobuffer_nbi; i++) {
 			bfree(buf.data.audiobuffer_r[i]);

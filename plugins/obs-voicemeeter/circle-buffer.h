@@ -67,6 +67,7 @@ private:
 	std::vector<Data> _Buf;
 	std::vector<bool> _Used;
 	size_t _writeIndex;
+	bool _active = false;
 
 	void incrementWriteIndex()
 	{
@@ -113,7 +114,7 @@ public:
 
 	~StreamableBuffer()
 	{
-
+		Disconnect();
 	}
 
 	size_t writableIndex()
@@ -131,14 +132,20 @@ public:
 		return i % _Buf.size();
 	}
 
+	void Disconnect()
+	{
+		_active = false;
+		SetEvent(_stopStreamingSignal);
+	}
+
 	template<class Callable>
 	void Write(Data &d, Callable c)
 	{
-		ResetEvent(_writtenToSignal);
+		SetEvent(_writtenToSignal);
 		std::invoke(c, d, _Buf[_writeIndex], _Used[_writeIndex]);
 		_Used[_writeIndex] = true;
 		incrementWriteIndex();
-		SetEvent(_writtenToSignal);
+		ResetEvent(_writtenToSignal);
 	}
 
 	const Data *Read(size_t i)
@@ -148,7 +155,7 @@ public:
 		else
 			return nullptr;
 	}
-
+	
 	template<class Reader>
 	static DWORD WINAPI Stream(void *data)
 	{
@@ -205,6 +212,8 @@ public:
 	template<class Reader>
 	void AddListener(Reader &r)
 	{
+		ResetEvent(_stopStreamingSignal);
+		_active = true;
 		std::pair<StreamableBuffer<Data>*, Reader*> *pair =
 			new std::pair<StreamableBuffer<Data>*, Reader*>(this, &r);
 		r.Connect(CreateThread(nullptr, 0, this->Stream<Reader>, pair, 0, nullptr));
@@ -213,6 +222,8 @@ public:
 	template<class Reader>
 	void AddListener(Reader *r)
 	{
+		ResetEvent(_stopStreamingSignal);
+		_active = true;
 		std::pair<StreamableBuffer<Data>*, Reader*> *pair =
 			new std::pair<StreamableBuffer<Data>*, Reader*>(this, r);
 		r->Connect(CreateThread(nullptr, 0, this->Stream<Reader>, pair, 0, nullptr));
