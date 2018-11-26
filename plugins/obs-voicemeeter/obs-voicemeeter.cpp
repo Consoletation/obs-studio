@@ -496,6 +496,11 @@ public:
 		if (!settings)
 			return;
 		_layout = (enum speaker_layout)obs_data_get_int(settings, "layout");
+		if (_layout == SPEAKERS_UNKNOWN) {
+			obs_audio_info aoi;
+			obs_get_audio_info(&aoi);
+			_layout = aoi.speakers;
+		}
 		for (int i = 0; i < MAX_AV_PLANES; i++) {
 			std::string name = "route " + std::to_string(i);
 			_route[i] = (int16_t)obs_data_get_int(settings, name.c_str());
@@ -526,6 +531,37 @@ public:
 	{
 		std::string name = "";
 		obs_property_list_clear(list);
+		obs_audio_info aoi;
+		obs_get_audio_info(&aoi);
+		switch (aoi.speakers) {
+		case SPEAKERS_MONO:      /**< Channels: MONO */
+			name = obs_module_text("Mono");
+			break;
+		case SPEAKERS_STEREO:    /**< Channels: FL, FR */
+			name = obs_module_text("Stereo");
+			break;
+		case SPEAKERS_2POINT1:   /**< Channels: FL, FR, LFE */
+			name = "2.1";
+			break;
+		case SPEAKERS_4POINT0:   /**< Channels: FL, FR, FC, RC */
+			name = "4.0";
+			break;
+		case SPEAKERS_4POINT1:   /**< Channels: FL, FR, FC, LFE, RC */
+			name = "4.1";
+			break;
+		case SPEAKERS_5POINT1:   /**< Channels: FL, FR, FC, LFE, RL, RR */
+			name = "5.1";
+			break;
+		case SPEAKERS_7POINT1:   /**< Channels: FL, FR, FC, LFE, RL, RR, SL, SR */
+			name = "7.1";
+			break;
+		default:
+			break;
+		}
+		std::string outputName = obs_module_text("Output");
+		outputName += " (" + name + ")";
+		obs_property_list_add_int(list, outputName.c_str(), 0);
+		name = "";
 		for (int i = 0; i < 9; i++) {
 			switch (i) {
 			//case SPEAKERS_UNKNOWN:   /**< Unknown setting, fallback is stereo. */
@@ -624,6 +660,11 @@ public:
 			obs_data_t *settings)
 	{
 		enum speaker_layout layout = (enum speaker_layout)obs_data_get_int(settings, obs_property_name(list));
+		if (layout == SPEAKERS_UNKNOWN) {
+			obs_audio_info aoi;
+			obs_get_audio_info(&aoi);
+			layout = aoi.speakers;
+		}
 		int channels = get_audio_channels(layout);
 
 		obs_property_t* pn = obs_properties_first(props);
