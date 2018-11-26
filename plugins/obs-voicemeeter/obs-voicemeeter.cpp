@@ -41,13 +41,13 @@ enum audio_format get_planar_format(audio_format format)
 	}
 }
 
-static enum {
+enum voicemeeter_type {
 	voicemeeter_normal = 1,
 	voicemeeter_banana = 2,
 	voicemeeter_potato = 3,
 };
 
-static enum {
+enum voicemeeter_hook {
 	voicemeeter_insert_in = 0,
 	voicemeeter_insert_out,
 	voicemeeter_main
@@ -154,7 +154,6 @@ static void copyToBuffer(VBVMR_T_AUDIOBUFFER_TS &buf, VBVMR_T_AUDIOBUFFER_TS &ou
 		} else {
 			for (int i = 0; i < buf.data.audiobuffer_nbi; i++)
 				memcpy(out.data.audiobuffer_r[i], buf.data.audiobuffer_r[i], bufSize);
-
 		}
 	} else {
 		for (int i = 0; i < buf.data.audiobuffer_nbi; i++)
@@ -196,10 +195,7 @@ static void writeMainAudio(VBVMR_T_AUDIOBUFFER_TS &buf, VBVMR_T_AUDIOBUFFER_TS &
 
 static long audioCallback(void *lpUser, long nCommand, void *lpData, long nnn)
 {
-	UNUSED_PARAMETER(lpUser);
 	uint64_t tStamp = os_gettime_ns();
-	float *bufferIn;
-	float *bufferOut;
 	VBVMR_T_AUDIOBUFFER_TS audioBuf;
 
 	switch (nCommand) {
@@ -211,6 +207,8 @@ static long audioCallback(void *lpUser, long nCommand, void *lpData, long nnn)
 		iVMR.VBVMR_GetVoicemeeterType(&vb_type);
 		break;
 	case VBVMR_CBCOMMAND_ENDING:
+		UNUSED_PARAMETER(lpUser);
+		UNUSED_PARAMETER(nnn);
 		break;
 	case VBVMR_CBCOMMAND_BUFFER_IN:
 		audioBuf.data = *((VBVMR_LPT_AUDIOBUFFER)lpData);
@@ -379,7 +377,7 @@ public:
 			std::string name = "route " + std::to_string(i);
 			_route[i] = (int16_t)obs_data_get_int(settings, name.c_str());
 		}
-		int nStage = obs_data_get_int(settings, "stage");
+		int nStage = (int)obs_data_get_int(settings, "stage");
 		if (_stage != nStage) {
 			Disconnect();
 			_stage = nStage;
@@ -440,9 +438,10 @@ public:
 	static bool channelsModified(obs_properties_t *props, obs_property_t *list,
 		obs_data_t *settings)
 	{
+		UNUSED_PARAMETER(props);
 		obs_property_list_clear(list);
 		obs_property_list_add_int(list, obs_module_text("Mute"), -1);
-		int stage = obs_data_get_int(settings, "stage");
+		int stage = (int)obs_data_get_int(settings, "stage");
 
 		int ret = iVMR.VBVMR_GetVoicemeeterType(&vb_type);
 		if (ret != 0) {
@@ -485,6 +484,7 @@ public:
 	static bool stageChanged(obs_properties_t *props, obs_property_t *list,
 		obs_data_t *settings)
 	{
+		UNUSED_PARAMETER(list);
 		obs_property_t* pn = obs_properties_first(props);
 		/* single pass over properties */
 		do {
@@ -501,7 +501,6 @@ public:
 	static bool layoutChanged(obs_properties_t *props, obs_property_t *list,
 			obs_data_t *settings)
 	{
-		obs_property_t *route[MAX_AUDIO_CHANNELS];
 		enum speaker_layout layout = (enum speaker_layout)obs_data_get_int(settings, obs_property_name(list));
 		int channels = get_audio_channels(layout);
 
@@ -539,8 +538,7 @@ public:
 			prop = obs_properties_add_list(props, ("route " + std::to_string(i)).c_str(),
 				obs_module_text(("Route." + std::to_string(i)).c_str()),
 				OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
-			obs_property_set_visible(prop, i < get_audio_channels(_layout));
-			//obs_property_set_modified_callback(prop, channelsModified);
+			obs_property_set_visible(prop, i < (int)get_audio_channels(_layout));
 		}
 		return props;
 	}
@@ -549,7 +547,6 @@ public:
 	{
 		struct obs_source_audio out;
 		out.timestamp = buf->ts;
-		int i;
 
 		int limit;
 		switch (vb_type) {
@@ -576,7 +573,7 @@ public:
 		}
 
 		_maxChannels = min((MAX_AV_PLANES), (get_audio_channels(_layout)));
-		for (i = 0; i < _maxChannels; i++) {
+		for (int i = 0; i < _maxChannels; i++) {
 			if (_route[i] >= 0 && _route[i] < limit) {
 				out.data[i] = (const uint8_t*)buf->data.audiobuffer_r[_route[i]];
 			} else {
@@ -589,7 +586,6 @@ public:
 				out.data[i] = (const uint8_t*)_silentBuffer.data();
 			}
 		}
-		float check = out.data[0][0];
 
 		out.samples_per_sec = buf->data.audiobuffer_sr;
 		out.frames = buf->data.audiobuffer_nbs;
@@ -775,38 +771,23 @@ bool obs_module_load(void)
 
 void obs_module_unload()
 {
-	blog(LOG_INFO, "client logging out");
+	blog(LOG_INFO, "forcing streams to close");
 	OBSBufferInsertIn.Disconnect();
 	OBSBufferInsertOut.Disconnect();
 	OBSBufferMain.Disconnect();
 
-	OBSBufferInsertIn.Clear([](VBVMR_T_AUDIOBUFFER_TS &buf) {
-		for (int i = 0; i < buf.data.audiobuffer_nbi; i++) {
-			bfree(buf.data.audiobuffer_r[i]);
-		}
-		for (int i = 0; i < buf.data.audiobuffer_nbo; i++) {
-			bfree(buf.data.audiobuffer_w[i]);
-		}
-	});
-	OBSBufferInsertOut.Clear([](VBVMR_T_AUDIOBUFFER_TS &buf) {
-		for (int i = 0; i < buf.data.audiobuffer_nbi; i++) {
-			bfree(buf.data.audiobuffer_r[i]);
-		}
-		for (int i = 0; i < buf.data.audiobuffer_nbo; i++) {
-			bfree(buf.data.audiobuffer_w[i]);
-		}
-	});
-	/* Need a bit of clarification on how the "Main" buffer's handled */
-	OBSBufferMain.Clear([](VBVMR_T_AUDIOBUFFER_TS &buf) {
-		for (int i = 0; i < buf.data.audiobuffer_nbi; i++) {
-			bfree(buf.data.audiobuffer_r[i]);
-		}
-		for (int i = 0; i < buf.data.audiobuffer_nbo; i++) {
-			bfree(buf.data.audiobuffer_w[i]);
-		}
-	});
-
 	iVMR.VBVMR_AudioCallbackStop();
 	iVMR.VBVMR_AudioCallbackUnregister();
 	iVMR.VBVMR_Logout();
+	blog(LOG_INFO, "cleaning up audio");
+
+	auto cleanUp = [](VBVMR_T_AUDIOBUFFER_TS &buf) {
+		for (int i = 0; i < buf.data.audiobuffer_nbi; i++) {
+			bfree(buf.data.audiobuffer_r[i]);
+			buf.data.audiobuffer_r[i] = nullptr;
+		}
+	};
+	OBSBufferInsertIn.Clear(cleanUp);
+	OBSBufferInsertOut.Clear(cleanUp);
+	OBSBufferMain.Clear(cleanUp);
 }
