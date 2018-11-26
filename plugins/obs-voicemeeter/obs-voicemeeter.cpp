@@ -206,20 +206,20 @@ static std::vector<vb_layout_map> mainsMap[4];
 
 void makeMap(int mode)
 {
-	int channel = 0;
+	int channel = -1;
 
 	for (size_t i = 0; i < inputLayouts[mode].size(); i++) {
 		channel += get_audio_channels(inputLayouts[mode][i].first);
 		inputMap[mode].push_back({channel, inputLayouts[mode][i].second });
 	}
 
-	channel = 0;
+	channel = -1;
 	for (size_t i = 0; i < outputLayouts[mode].size(); i++) {
 		channel += get_audio_channels(outputLayouts[mode][i].first);
 		outputMap[mode].push_back({ channel, outputLayouts[mode][i].second });
 	}
 
-	channel = 0;
+	channel = -1;
 	for (size_t i = 0; i < inputLayouts[mode].size(); i++) {
 		channel += get_audio_channels(inputLayouts[mode][i].first);
 		mainsMap[mode].push_back({ channel, inputLayouts[mode][i].second });
@@ -534,6 +534,9 @@ public:
 		obs_audio_info aoi;
 		obs_get_audio_info(&aoi);
 		switch (aoi.speakers) {
+		case SPEAKERS_UNKNOWN:
+			name = obs_module_text("Unknown");
+			break;
 		case SPEAKERS_MONO:      /**< Channels: MONO */
 			name = obs_module_text("Mono");
 			break;
@@ -940,7 +943,7 @@ bool obs_module_load(void)
 
 void obs_module_unload()
 {
-	blog(LOG_INFO, "forcing streams to close");
+	blog(LOG_INFO, "closing streams");
 	OBSBufferInsertIn.Disconnect();
 	OBSBufferInsertOut.Disconnect();
 	OBSBufferMain.Disconnect();
