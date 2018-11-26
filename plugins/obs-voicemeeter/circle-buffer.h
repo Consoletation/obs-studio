@@ -184,29 +184,24 @@ public:
 				}
 				break;
 			case WAIT_OBJECT_0+1:
+				delete p;
 				return 0;
 			case WAIT_OBJECT_0+2:
+				delete p;
 				return 0;
 			case WAIT_ABANDONED_0:
-				blog(LOG_ERROR, "%i", waitResult);
-				return 0;
 			case WAIT_ABANDONED_0+1:
-				blog(LOG_ERROR, "%i", waitResult);
-				return 0;
 			case WAIT_ABANDONED_0+2:
-				blog(LOG_ERROR, "%i", waitResult);
-				return 0;
 			case WAIT_TIMEOUT:
-				blog(LOG_ERROR, "%i", waitResult);
-				return 0;
 			case WAIT_FAILED:
-				blog(LOG_ERROR, "%i", waitResult);
-				return 0;
 			default:
 				blog(LOG_ERROR, "%i", waitResult);
+				delete p;
 				return 0;
 			}
 		}
+		delete p;
+		return 0;
 	}
 
 	template<class Reader>
