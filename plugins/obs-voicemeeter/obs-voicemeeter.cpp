@@ -141,6 +141,129 @@ static std::vector<int32_t> validInputs = {0, 12, 22, 34 };
 static std::vector<int32_t> validOutputs = {0, 16, 40, 64 };
 static std::vector<int32_t> validMains = {0, 28, 62, 98 };
 
+typedef std::pair<speaker_layout, std::string> vb_layout;
+typedef std::pair<int, std::string> vb_layout_map;
+
+static std::vector<vb_layout> inputLayouts[4] = {
+	{
+		/*Unknown*/
+	},
+	{
+		{SPEAKERS_STEREO, "Strip 1"},
+		{SPEAKERS_STEREO, "Strip 2"},
+		{SPEAKERS_7POINT1, "Virtual Input"},
+	},
+	{
+		{SPEAKERS_STEREO, "Strip 1"},
+		{SPEAKERS_STEREO, "Strip 2"},
+		{SPEAKERS_STEREO, "Strip 3"},
+		{SPEAKERS_7POINT1, "Virtual Input"},
+		{SPEAKERS_7POINT1, "Virtual Input (AUX)"},
+	},
+	{
+		{SPEAKERS_STEREO, "Strip 1"},
+		{SPEAKERS_STEREO, "Strip 2"},
+		{SPEAKERS_STEREO, "Strip 3"},
+		{SPEAKERS_STEREO, "Strip 4"},
+		{SPEAKERS_STEREO, "Strip 5"},
+		{SPEAKERS_7POINT1, "Virtual Input"},
+		{SPEAKERS_7POINT1, "Virtual Input (AUX)"},
+		{SPEAKERS_7POINT1, "Virtual Input 8"},
+	}
+};
+
+static std::vector<vb_layout> outputLayouts[4] = {
+	{
+		/*Unknown*/
+	},
+	{
+		{SPEAKERS_7POINT1, "Output A1 / A2"},
+		{SPEAKERS_7POINT1, "Virtual Output"},
+	},
+	{
+		{SPEAKERS_7POINT1, "Output A1"},
+		{SPEAKERS_7POINT1, "Output A2"},
+		{SPEAKERS_7POINT1, "Output A3"},
+		{SPEAKERS_7POINT1, "Virtual Output B1"},
+		{SPEAKERS_7POINT1, "Virtual Output B2"},
+	},
+	{
+		{SPEAKERS_7POINT1, "Output A1"},
+		{SPEAKERS_7POINT1, "Output A2"},
+		{SPEAKERS_7POINT1, "Output A3"},
+		{SPEAKERS_7POINT1, "Output A4"},
+		{SPEAKERS_7POINT1, "Output A5"},
+		{SPEAKERS_7POINT1, "Virtual Output B1"},
+		{SPEAKERS_7POINT1, "Virtual Output B2"},
+		{SPEAKERS_7POINT1, "Virtual Output B3"},
+	}
+};
+/*mainLayouts is made by appending outputLayouts to inputLayouts*/
+
+static std::vector<vb_layout_map> inputMap[4];
+static std::vector<vb_layout_map> outputMap[4];
+static std::vector<vb_layout_map> mainsMap[4];
+
+void makeMap(int mode)
+{
+	int channel = 0;
+
+	for (size_t i = 0; i < inputLayouts[mode].size(); i++) {
+		channel += get_audio_channels(inputLayouts[mode][i].first);
+		inputMap[mode].push_back({channel, inputLayouts[mode][i].second });
+	}
+
+	channel = 0;
+	for (size_t i = 0; i < outputLayouts[mode].size(); i++) {
+		channel += get_audio_channels(outputLayouts[mode][i].first);
+		outputMap[mode].push_back({ channel, outputLayouts[mode][i].second });
+	}
+
+	channel = 0;
+	for (size_t i = 0; i < inputLayouts[mode].size(); i++) {
+		channel += get_audio_channels(inputLayouts[mode][i].first);
+		mainsMap[mode].push_back({ channel, inputLayouts[mode][i].second });
+	}
+	for (size_t i = 0; i < outputLayouts[mode].size(); i++) {
+		channel += get_audio_channels(outputLayouts[mode][i].first);
+		mainsMap[mode].push_back({ channel, outputLayouts[mode][i].second });
+	}
+
+	return;
+}
+
+std::string getChannelName(int index, int mode)
+{
+	std::vector<vb_layout_map>::iterator it;
+	vb_layout_map search = { index, "" };
+	switch (mode) {
+	case voicemeeter_insert_in:
+		it = std::lower_bound(inputMap[vb_type].begin(), inputMap[vb_type].end(), search, [](vb_layout_map left, vb_layout_map right) {
+			return left.first < right.first;
+		});
+		if (it == inputMap[vb_type].end())
+			return "";
+		return it->second;
+	case voicemeeter_insert_out:
+		it = std::lower_bound(outputMap[vb_type].begin(), outputMap[vb_type].end(), search, [](vb_layout_map left, vb_layout_map right) {
+			return left.first < right.first;
+		});
+		if (it == outputMap[vb_type].end())
+			return "";
+		return it->second;
+	case voicemeeter_main:
+		it = std::lower_bound(mainsMap[vb_type].begin(), mainsMap[vb_type].end(), search, [](vb_layout_map left, vb_layout_map right) {
+			return left.first < right.first;
+		});
+		if (it == mainsMap[vb_type].end())
+			return "";
+		return it->second;
+	default:
+		break;
+	}
+	return "";
+}
+
 static void copyToBuffer(VBVMR_T_AUDIOBUFFER_TS &buf, VBVMR_T_AUDIOBUFFER_TS &out, bool used)
 {
 	size_t bufSize = buf.data.audiobuffer_nbs * sizeof(float);
@@ -455,27 +578,26 @@ public:
 		int mains = validMains[vb_type];
 
 		std::string name;
+		
 		switch (stage) {
 		case voicemeeter_insert_in:
-			name = "Insert (input) ";
 			total = inputs;
 			break;
 		case voicemeeter_insert_out:
-			name = "Insert (output) ";
 			total = outputs;
 			break;
 		case voicemeeter_main:
-			name = "Main ";
 			total = mains;
 			break;
 		default:
 			return true;
 		};
-
+		
 		int i;
 		
 		for (i = 0; i < total; i++) {
-			obs_property_list_add_int(list, (name + std::to_string(i)).c_str(), i);
+			name = getChannelName(i, stage);
+			obs_property_list_add_int(list, (std::to_string(i)+": "+name).c_str(), i);
 		}
 
 		return true;
@@ -751,6 +873,12 @@ bool obs_module_load(void)
 		blog(LOG_ERROR, "Unexpected code %i registering audio callback", ret);
 		return false;
 	}
+
+	makeMap(0);
+	makeMap(voicemeeter_normal);
+	makeMap(voicemeeter_banana);
+	makeMap(voicemeeter_potato);
+
 	iVMR.VBVMR_AudioCallbackStart();
 	
 	struct obs_source_info voicemeeter_input_capture = { 0 };
