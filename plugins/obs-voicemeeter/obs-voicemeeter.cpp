@@ -184,7 +184,7 @@ static void writeInsertAudio(VBVMR_T_AUDIOBUFFER_TS &buf, VBVMR_T_AUDIOBUFFER_TS
 	copyToBuffer(buf, out, used);
 	size_t bufSize = buf.data.audiobuffer_nbs * sizeof(float);
 	/*pass-through*/
-	for (int i = 0; i < buf.data.audiobuffer_nbi; i++)
+	for (int i = 0; i < validInputs[vb_type]; i++)
 		memcpy(buf.data.audiobuffer_w[i], buf.data.audiobuffer_r[i], bufSize);
 }
 
@@ -233,7 +233,7 @@ static long audioCallback(void *lpUser, long nCommand, void *lpData, long nnn)
 	case VBVMR_CBCOMMAND_BUFFER_OUT:
 		audioBuf.data = *((VBVMR_LPT_AUDIOBUFFER)lpData);
 		audioBuf.ts = tStamp;
-		OBSBufferInsertOut.Write(audioBuf, writeInsertAudio);
+		OBSBufferInsertOut.Write(audioBuf, writeInsertOutAudio);
 		break;
 	case VBVMR_CBCOMMAND_BUFFER_MAIN:
 		audioBuf.data = *((VBVMR_LPT_AUDIOBUFFER)lpData);
@@ -461,6 +461,7 @@ public:
 		iVMR.VBVMR_GetVoicemeeterType(&type);
 		int inputs = 0;
 		int outputs = 0;
+		int total = 0;
 
 		inputs = validInputs[type];
 		outputs = validOutputs[type];
@@ -469,21 +470,23 @@ public:
 		switch (stage) {
 		case voicemeeter_insert_in:
 			name = "Insert (input) ";
+			total = inputs;
 			break;
 		case voicemeeter_insert_out:
 			name = "Insert (output) ";
+			total = outputs;
 			break;
 		case voicemeeter_main:
 		default:
 			name = "Main ";
+			total = inputs;
 			break;
 		};
 
-		int total = inputs + outputs;
 		int j = 0;
 		int i = 0;
 		
-		for (i = 0; i < inputs; i++) {
+		for (i = 0; i < total; i++) {
 			obs_property_list_add_int(list, (name + std::to_string(i)).c_str(), j++);
 		}
 
@@ -515,7 +518,7 @@ public:
 			OBS_COMBO_FORMAT_INT);
 		obs_property_list_add_int(stage, obs_module_text("Voicemeeter Insert (input)"), 0);
 		obs_property_list_add_int(stage, obs_module_text("Voicemeeter Insert (output)"), 1);
-		//obs_property_list_add_int(stage, obs_module_text("Voicemeeter Main"), 2);
+		obs_property_list_add_int(stage, obs_module_text("Voicemeeter Main"), 2);
 
 		obs_property_t *layoutProperty = obs_properties_add_list(props, "layout", obs_module_text("Speaker Layout"),
 				OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
@@ -555,6 +558,8 @@ public:
 			limit = validOutputs[vb_type];
 			break;
 		case voicemeeter_main:
+			limit = validOutputs[vb_type];
+			break;
 		default:
 			return;
 		}
@@ -572,62 +577,16 @@ public:
 				}
 				out.data[i] = (const uint8_t*)_silentBuffer.data();
 			}
-			/*
-			int oi = _route[i] - buf->data.audiobuffer_nbi;
-			if (_route[i] >= 0 && _route[i] < buf->data.audiobuffer_nbi) {
-				out.data[i] = (const uint8_t*)buf->data.audiobuffer_r[_route[i]];
-			} else if (oi >= 0 && _route[i] < buf->data.audiobuffer_nbo) {
-				out.data[i] = (const uint8_t*)buf->data.audiobuffer_w[oi];
-			} else {
-				if (buf->data.audiobuffer_nbs * 4 > _silentBuffer.size()) {
-					_silentBuffer.reserve(buf->data.audiobuffer_nbs * 4);
-					do {
-						_silentBuffer.push_back(0);
-					} while (buf->data.audiobuffer_nbs * 4 > _silentBuffer.size());
-				}
-				out.data[i] = (const uint8_t*)_silentBuffer.data();
-			}
-			*/
 		}
+		float check = out.data[0][0];
+
 		out.samples_per_sec = buf->data.audiobuffer_sr;
 		out.frames = buf->data.audiobuffer_nbs;
-		out.format = AUDIO_FORMAT_32BIT_PLANAR;
+		out.format = AUDIO_FORMAT_FLOAT_PLANAR;
 		out.speakers = _layout;
 
 		obs_source_output_audio(_source, &out);
 	}
-	/*
-	void Read(VBVMR_T_AUDIOBUFFER_TS &buf)
-	{
-		struct obs_source_audio out;
-		out.timestamp = buf.ts;
-		int i;
-		//buf.data.audiobuffer_nbi
-		_maxChannels = min((MAX_AV_PLANES), (get_audio_channels(_layout)));
-		for (i = 0; i < _maxChannels; i++) {
-			int oi = _route[i] - buf.data.audiobuffer_nbi;
-			if (_route[i] >= 0 && _route[i] < buf.data.audiobuffer_nbi) {
-				out.data[i] = (const uint8_t*)buf.data.audiobuffer_r[_route[i]];
-			} else if (oi >= 0 && _route[i] < buf.data.audiobuffer_nbo) {
-				out.data[i] = (const uint8_t*)buf.data.audiobuffer_w[oi];
-			} else {
-				if (buf.data.audiobuffer_nbs * 4 > _silentBuffer.size()) {
-					_silentBuffer.reserve(buf.data.audiobuffer_nbs * 4);
-					do {
-						_silentBuffer.push_back(0);
-					} while (buf.data.audiobuffer_nbs * 4 > _silentBuffer.size());
-				}
-				out.data[i] = (const uint8_t*)_silentBuffer.data();
-			}
-		}
-		out.samples_per_sec = buf.data.audiobuffer_sr;
-		out.frames = buf.data.audiobuffer_nbs;
-		out.format = AUDIO_FORMAT_32BIT_PLANAR;
-		out.speakers = _layout;
-
-		obs_source_output_audio(_source, &out);
-	}
-	*/
 };
 
 static void *vi_create(obs_data_t *settings, obs_source_t *source)
@@ -663,7 +622,11 @@ static obs_properties_t *vi_get_properties(void *vptr)
 
 static void vi_get_defaults(obs_data_t *settings)
 {
-
+	/*Mute by default*/
+	for (int i = 0; i < MAX_AV_PLANES; i++) {
+		std::string name = "route " + std::to_string(i);
+		obs_data_set_default_int(settings, name.c_str(), -1);
+	}
 }
 
 bool obs_module_load(void)
@@ -748,7 +711,21 @@ bool obs_module_load(void)
 	//long opts = VBVMR_AUDIOCALLBACK_IN;//VBVMR_AUDIOCALLBACK_MAIN | VBVMR_AUDIOCALLBACK_IN | VBVMR_AUDIOCALLBACK_OUT;
 	//long opts = VBVMR_AUDIOCALLBACK_MAIN | VBVMR_AUDIOCALLBACK_IN | VBVMR_AUDIOCALLBACK_OUT;
 	long opts = VBVMR_AUDIOCALLBACK_IN | VBVMR_AUDIOCALLBACK_OUT;
-	iVMR.VBVMR_AudioCallbackRegister(opts, audioCallback, NULL, "obs-voicemeeter");
+	char application_name[64] = "obs-voicemeeter";
+	ret = iVMR.VBVMR_AudioCallbackRegister(opts, audioCallback, NULL, application_name);
+	switch (ret) {
+	case 0:
+		break;
+	case -1:
+		blog(LOG_ERROR, "Error %i registering audio callback", ret);
+		return false;
+	case 1:
+		blog(LOG_ERROR, "Error %i registering audio callback: %s has already registered a callback", ret, application_name);
+		return false;
+	default:
+		blog(LOG_ERROR, "Unexpected code %i registering audio callback", ret);
+		return false;
+	}
 	iVMR.VBVMR_AudioCallbackStart();
 	
 	struct obs_source_info voicemeeter_input_capture = { 0 };
@@ -786,7 +763,7 @@ void obs_module_unload()
 			bfree(buf.data.audiobuffer_w[i]);
 		}
 	});
-	/*
+	/* Need a bit of clarification on how the "Main" buffer's handled */
 	OBSBufferMain.Clear([](VBVMR_T_AUDIOBUFFER_TS &buf) {
 		for (int i = 0; i < buf.data.audiobuffer_nbi; i++) {
 			bfree(buf.data.audiobuffer_r[i]);
@@ -795,7 +772,7 @@ void obs_module_unload()
 			bfree(buf.data.audiobuffer_w[i]);
 		}
 	});
-	*/
+
 	iVMR.VBVMR_AudioCallbackStop();
 	iVMR.VBVMR_AudioCallbackUnregister();
 	iVMR.VBVMR_Logout();
