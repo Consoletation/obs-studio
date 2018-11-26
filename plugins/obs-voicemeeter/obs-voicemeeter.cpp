@@ -151,22 +151,14 @@ static void copyToBuffer(VBVMR_T_AUDIOBUFFER_TS &buf, VBVMR_T_AUDIOBUFFER_TS &ou
 				bfree(out.data.audiobuffer_r[i]);
 				out.data.audiobuffer_r[i] = (float*)bmemdup(buf.data.audiobuffer_r[i], bufSize);
 			}
-			for (int i = 0; i < buf.data.audiobuffer_nbo; i++) {
-				bfree(out.data.audiobuffer_w[i]);
-				out.data.audiobuffer_w[i] = (float*)bmemdup(buf.data.audiobuffer_w[i], bufSize);
-			}
 		} else {
 			for (int i = 0; i < buf.data.audiobuffer_nbi; i++)
 				memcpy(out.data.audiobuffer_r[i], buf.data.audiobuffer_r[i], bufSize);
-			for (int i = 0; i < buf.data.audiobuffer_nbo; i++)
-				memcpy(out.data.audiobuffer_w[i], buf.data.audiobuffer_w[i], bufSize);
 
 		}
 	} else {
 		for (int i = 0; i < buf.data.audiobuffer_nbi; i++)
 			out.data.audiobuffer_r[i] = (float*)bmemdup(buf.data.audiobuffer_r[i], bufSize);
-		for (int i = 0; i < buf.data.audiobuffer_nbo; i++)
-			out.data.audiobuffer_w[i] = (float*)bmemdup(buf.data.audiobuffer_w[i], bufSize);
 	}
 	out.data.audiobuffer_nbi = buf.data.audiobuffer_nbi;
 	out.data.audiobuffer_nbo = buf.data.audiobuffer_nbo;
@@ -402,7 +394,7 @@ public:
 				OBSBufferMain.AddListener(this);
 				break;
 			default:
-				Disconnect();
+				break;
 			}
 		}
 
@@ -452,19 +444,16 @@ public:
 		obs_property_list_add_int(list, obs_module_text("Mute"), -1);
 		int stage = obs_data_get_int(settings, "stage");
 
-		long type;
-		int ret = iVMR.VBVMR_GetVoicemeeterType(&type);
+		int ret = iVMR.VBVMR_GetVoicemeeterType(&vb_type);
 		if (ret != 0) {
 			vb_type = 0;
 			return true;
 		}
-		int inputs = 0;
-		int outputs = 0;
 		int total = 0;
-		vb_type = type;
 
-		inputs = validInputs[type];
-		outputs = validOutputs[type];
+		int inputs = validInputs[vb_type];
+		int outputs = validOutputs[vb_type];
+		int mains = validMains[vb_type];
 
 		std::string name;
 		switch (stage) {
@@ -478,7 +467,7 @@ public:
 			break;
 		case voicemeeter_main:
 			name = "Main ";
-			total = outputs;
+			total = mains;
 			break;
 		default:
 			return true;
@@ -694,7 +683,7 @@ bool obs_module_load(void)
 		return false;
 	}
 
-	ret = iVMR.VBVMR_GetVoicemeeterType((long *)&application);
+	ret = iVMR.VBVMR_GetVoicemeeterType((long *)&vb_type);
 	if (ret != 0) {
 		blog(LOG_ERROR, "could not get voicmeeter type");
 		return false;
@@ -705,7 +694,7 @@ bool obs_module_load(void)
 		return false;
 	}
 
-	switch (application) {
+	switch (vb_type) {
 	case voicemeeter_potato:
 		blog(LOG_INFO, "running voicemeeter potato %u.%u.%u.%u",
 			version.v4, version.v3, version.v2, version.v1);
@@ -722,7 +711,6 @@ bool obs_module_load(void)
 		blog(LOG_ERROR, "unknown voicemeeter version");
 		return false;
 	}
-	vb_type = application;
 
 	long deviceType;
 	char deviceName[1024] = { 0 };
