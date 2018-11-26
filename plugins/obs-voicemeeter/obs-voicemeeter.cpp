@@ -538,8 +538,7 @@ public:
 		struct obs_source_audio out;
 		out.timestamp = buf->ts;
 		int i;
-		//buf.data.audiobuffer_nbi
-		//_vbValidIns = min((),)
+
 		int limit;
 		switch (vb_type) {
 		case voicemeeter_potato:
@@ -644,6 +643,12 @@ bool obs_module_load(void)
 		break;
 	case 1:
 		blog(LOG_INFO, "attempting to open voicemeeter");
+		ret = iVMR.VBVMR_RunVoicemeeter(voicemeeter_potato);
+		if (ret == 0) {
+			blog(LOG_INFO, "successfully opened banana");
+			break;
+		}
+
 		ret = iVMR.VBVMR_RunVoicemeeter(voicemeeter_banana);
 		if (ret == 0) {
 			blog(LOG_INFO, "successfully opened banana");
@@ -670,6 +675,10 @@ bool obs_module_load(void)
 	iVMR.VBVMR_GetVoicemeeterVersion((long *)&version.v);
 
 	switch (application) {
+	case voicemeeter_potato:
+		blog(LOG_INFO, "running voicemeeter potato %u.%u.%u.%u",
+			version.v4, version.v3, version.v2, version.v1);
+		break;
 	case voicemeeter_banana:
 		blog(LOG_INFO, "running voicemeeter banana %u.%u.%u.%u",
 				version.v4, version.v3, version.v2, version.v1);
@@ -677,8 +686,7 @@ bool obs_module_load(void)
 	case voicemeeter_normal:
 		blog(LOG_INFO, "running voicemeeter %u.%u.%u.%u",
 				version.v4, version.v3, version.v2, version.v1);
-		blog(LOG_ERROR, "expected voicemeeter banana");
-		return false;
+		break;
 	}
 	vb_type = application;
 
