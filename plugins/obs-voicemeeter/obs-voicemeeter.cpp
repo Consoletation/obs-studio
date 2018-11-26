@@ -208,16 +208,15 @@ static long audioCallback(void *lpUser, long nCommand, void *lpData, long nnn)
 	uint64_t tStamp = os_gettime_ns();
 	float *bufferIn;
 	float *bufferOut;
-	VBVMR_LPT_AUDIOINFO audioInfo;
 	VBVMR_T_AUDIOBUFFER_TS audioBuf;
-	//VBVMR_LPT_AUDIOBUFFER audioBuf;
 
 	switch (nCommand) {
 	case VBVMR_CBCOMMAND_STARTING:
-		audioInfo = (VBVMR_LPT_AUDIOINFO)lpData;
+		/*update the application version (in case user opens alternate version)*/
+		iVMR.VBVMR_GetVoicemeeterType(&vb_type);
 		break;
 	case VBVMR_CBCOMMAND_CHANGE:
-		audioInfo = (VBVMR_LPT_AUDIOINFO)lpData;
+		iVMR.VBVMR_GetVoicemeeterType(&vb_type);
 		break;
 	case VBVMR_CBCOMMAND_ENDING:
 		break;
