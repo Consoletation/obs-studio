@@ -21,10 +21,11 @@ include_directories(
 
 set(obs-voicemeeter_HEADERS
 	VoicemeeterRemote.h
+	circle-buffer.h
 )
 
 set(obs-voicemeeter_SOURCES
-	obs-voicemeeter.c
+	obs-voicemeeter.cpp
 )
 
 add_library(obs-voicemeeter MODULE
