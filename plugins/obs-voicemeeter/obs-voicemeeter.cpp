@@ -3,11 +3,7 @@
 
 #include <media-io/audio-math.h>
 #include <math.h>
-/*
-#include <libloaderapi.h>
-#include <winreg.h>
-#include <winerror.h>
-*/
+
 #include <windows.h>
 #include "circle-buffer.h"
 #include "VoicemeeterRemote.h"
@@ -645,7 +641,7 @@ bool obs_module_load(void)
 		blog(LOG_INFO, "attempting to open voicemeeter");
 		ret = iVMR.VBVMR_RunVoicemeeter(voicemeeter_potato);
 		if (ret == 0) {
-			blog(LOG_INFO, "successfully opened banana");
+			blog(LOG_INFO, "successfully opened potato");
 			break;
 		}
 
@@ -671,8 +667,16 @@ bool obs_module_load(void)
 		return false;
 	}
 
-	iVMR.VBVMR_GetVoicemeeterType((long *)&application);
-	iVMR.VBVMR_GetVoicemeeterVersion((long *)&version.v);
+	ret = iVMR.VBVMR_GetVoicemeeterType((long *)&application);
+	if (ret != 0) {
+		blog(LOG_ERROR, "could not get voicmeeter type");
+		return false;
+	}
+	ret = iVMR.VBVMR_GetVoicemeeterVersion((long *)&version.v);
+	if (ret != 0) {
+		blog(LOG_ERROR, "could not get voicmeeter version");
+		return false;
+	}
 
 	switch (application) {
 	case voicemeeter_potato:
@@ -687,6 +691,9 @@ bool obs_module_load(void)
 		blog(LOG_INFO, "running voicemeeter %u.%u.%u.%u",
 				version.v4, version.v3, version.v2, version.v1);
 		break;
+	default:
+		blog(LOG_ERROR, "unknown voicemeeter version");
+		return false;
 	}
 	vb_type = application;
 
