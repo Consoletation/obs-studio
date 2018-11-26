@@ -492,12 +492,15 @@ public:
 	static bool stageChanged(obs_properties_t *props, obs_property_t *list,
 		obs_data_t *settings)
 	{
-		obs_property_t *route[MAX_AUDIO_CHANNELS];
-		for (int i = 0; i < MAX_AV_PLANES; i++) {
-			std::string name = "route " + std::to_string(i);
-			route[i] = obs_properties_get(props, name.c_str());
-			obs_property_list_clear(route[i]);
-		}
+		obs_property_t* pn = obs_properties_first(props);
+		/* single pass over properties */
+		do {
+			const char* name = obs_property_name(pn);
+			if (strncmp("route ", name, 6) == 0) {
+				obs_property_list_clear(pn);
+			}
+		} while (obs_property_next(&pn));
+
 		return true;
 	}
 
@@ -508,12 +511,18 @@ public:
 		enum speaker_layout layout = (enum speaker_layout)obs_data_get_int(settings, obs_property_name(list));
 		int channels = get_audio_channels(layout);
 
-		for (int i = 0; i < MAX_AV_PLANES; i++) {
-			std::string name = "route " + std::to_string(i);
-			route[i] = obs_properties_get(props, name.c_str());
-			obs_property_set_visible(route[i], i < channels);
-			obs_property_list_clear(route[i]);
-		}
+		obs_property_t* pn = obs_properties_first(props);
+		/* single pass over properties */
+		int i = 0;
+		do {
+			const char* name = obs_property_name(pn);
+			if (strncmp("route ", name, 6) == 0) {
+				std::string in = (name + 6);
+				i = std::stoi(in);
+				obs_property_set_visible(pn, i < channels);
+			}
+		} while (obs_property_next(&pn));
+
 		return true;
 	}
 
