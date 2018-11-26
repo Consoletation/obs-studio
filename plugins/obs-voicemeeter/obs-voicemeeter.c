@@ -26,9 +26,9 @@ OBS_MODULE_USE_DEFAULT_LOCALE("rematrix-filter", "en-US")
 #endif // !MAX_AUDIO_SIZE
 
 enum {
-	voicemeeter_normal = 0,
-	voicemeeter_banana = 1,
-	voicemeeter_potato = 2,
+	voicemeeter_normal = 1,
+	voicemeeter_banana = 2,
+	voicemeeter_potato = 3,
 };
 
 static char uninstDirKey[] = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall";
@@ -47,7 +47,7 @@ void RemoveNameInPath(char * szPath)
 #define KEY_WOW64_32KEY 0x0200
 #endif
 
-BOOL __cdecl RegistryGetVoicemeeterFolder(char * szDir)
+BOOL __cdecl RegistryGetVoicemeeterFolderA(char * szDir)
 {
 	char szKey[256];
 	char sss[1024];
@@ -63,18 +63,30 @@ BOOL __cdecl RegistryGetVoicemeeterFolder(char * szDir)
 	strcat(szKey, INSTALLER_UNINST_KEY);
 
 	// open key
-	rep = RegOpenKeyEx(HKEY_LOCAL_MACHINE, szKey, 0, KEY_READ, &hkResult);
+	rep = RegOpenKeyExA(HKEY_LOCAL_MACHINE, szKey, 0, KEY_READ, &hkResult);
 	if (rep != ERROR_SUCCESS) {
 		// if not present we consider running in 64bit mode and force to read 32bit registry
-		rep = RegOpenKeyEx(HKEY_LOCAL_MACHINE, szKey, 0, KEY_READ | KEY_WOW64_32KEY, &hkResult);
+		rep = RegOpenKeyExA(HKEY_LOCAL_MACHINE, szKey, 0, KEY_READ | KEY_WOW64_32KEY, &hkResult);
 	}
-	if (rep != ERROR_SUCCESS) return FALSE;
-	// read uninstall profram path
-	rep = RegQueryValueEx(hkResult, "UninstallString", 0, &pptype, (unsigned char *)sss, &nnsize);
-	RegCloseKey(hkResult);
 
-	if (pptype != REG_SZ) return FALSE;
-	if (rep != ERROR_SUCCESS) return FALSE;
+	if (rep != ERROR_SUCCESS) {
+		blog(LOG_ERROR, "error %i reading registry", rep);
+		return FALSE;
+	}
+	// read uninstall from program path
+	rep = RegQueryValueExA(hkResult, "UninstallString", 0, &pptype, (unsigned char *)sss, &nnsize);
+	RegCloseKey(hkResult);
+	
+
+
+	if (pptype != REG_SZ) {
+		blog(LOG_INFO, "pptype %u, %u", pptype, REG_SZ);
+		return FALSE;
+	}
+	if (rep != ERROR_SUCCESS) {
+		blog(LOG_ERROR, "error %i getting value", rep);
+		return FALSE;
+	}
 	// remove name to get the path only
 	RemoveNameInPath(sss);
 	if (nnsize > 512) nnsize = 512;
@@ -85,25 +97,29 @@ BOOL __cdecl RegistryGetVoicemeeterFolder(char * szDir)
 
 static T_VBVMR_INTERFACE iVMR;
 static HMODULE G_H_Module = NULL;
+static int application = 0;
 
 long InitializeDLLInterfaces(void)
 {
 	char szDllName[1024] = {0};
 	memset(&iVMR, 0, sizeof(T_VBVMR_INTERFACE));
 
-	//get folder where is installed Voicemeeter
-	if (RegistryGetVoicemeeterFolder(szDllName) == FALSE) {
-		// voicemeeter not installed
-		blog(LOG_INFO, "%s", szDllName);
+	if (RegistryGetVoicemeeterFolderA(szDllName) == FALSE) {
+		// voicemeeter not installed?
+		blog(LOG_INFO, "voicemeeter does not appear to be installed");
 		return -100;
 	}
-	//use right dll according O/S type
+
+	//use right dll w/ bitness
 	if (sizeof(void*) == 8) strcat(szDllName, "\\VoicemeeterRemote64.dll");
 	else strcat(szDllName, "\\VoicemeeterRemote.dll");
 
 	// Load Dll
-	G_H_Module = LoadLibrary(szDllName);
-	if (G_H_Module == NULL) return -101;
+	G_H_Module = LoadLibraryA(szDllName);
+	if (G_H_Module == NULL) {
+		blog(LOG_INFO, ".dll failed to load");
+		return -101;
+	}
 
 	// Get function pointers
 	iVMR.VBVMR_Login = (T_VBVMR_Login)GetProcAddress(G_H_Module, "VBVMR_Login");
@@ -132,13 +148,12 @@ long InitializeDLLInterfaces(void)
 	iVMR.VBVMR_Input_GetDeviceDescA = (T_VBVMR_Input_GetDeviceDescA)GetProcAddress(G_H_Module, "VBVMR_Input_GetDeviceDescA");
 	iVMR.VBVMR_Input_GetDeviceDescW = (T_VBVMR_Input_GetDeviceDescW)GetProcAddress(G_H_Module, "VBVMR_Input_GetDeviceDescW");
 
-#ifdef VMR_INCLUDE_AUDIO_PROCESSING_EXAMPLE
 	iVMR.VBVMR_AudioCallbackRegister = (T_VBVMR_AudioCallbackRegister)GetProcAddress(G_H_Module, "VBVMR_AudioCallbackRegister");
 	iVMR.VBVMR_AudioCallbackStart = (T_VBVMR_AudioCallbackStart)GetProcAddress(G_H_Module, "VBVMR_AudioCallbackStart");
 	iVMR.VBVMR_AudioCallbackStop = (T_VBVMR_AudioCallbackStop)GetProcAddress(G_H_Module, "VBVMR_AudioCallbackStop");
 	iVMR.VBVMR_AudioCallbackUnregister = (T_VBVMR_AudioCallbackUnregister)GetProcAddress(G_H_Module, "VBVMR_AudioCallbackUnregister");
-#endif
-	// check pointers are valid
+
+	// Check pointers are valid
 	if (iVMR.VBVMR_Login == NULL) return -1;
 	if (iVMR.VBVMR_Logout == NULL) return -2;
 	if (iVMR.VBVMR_RunVoicemeeter == NULL) return -2;
@@ -163,12 +178,11 @@ long InitializeDLLInterfaces(void)
 	if (iVMR.VBVMR_Input_GetDeviceDescA == NULL) return -34;
 	if (iVMR.VBVMR_Input_GetDeviceDescW == NULL) return -35;
 
-#ifdef VMR_INCLUDE_AUDIO_PROCESSING_EXAMPLE
 	if (iVMR.VBVMR_AudioCallbackRegister == NULL) return -40;
 	if (iVMR.VBVMR_AudioCallbackStart == NULL) return -41;
 	if (iVMR.VBVMR_AudioCallbackStop == NULL) return -42;
 	if (iVMR.VBVMR_AudioCallbackUnregister == NULL) return -43;
-#endif
+
 	return 0;
 }
 
@@ -177,7 +191,7 @@ bool obs_module_load(void)
 {
 	int ret = InitializeDLLInterfaces();
 	if (ret != 0) {
-		blog(LOG_INFO, "could not load .dll");
+		blog(LOG_INFO, ".dll failed to be initalized");
 		return false;
 	}
 
@@ -185,24 +199,42 @@ bool obs_module_load(void)
 	switch (ret) {
 	case 0:
 		blog(LOG_INFO, "client logged in");
-		return true;
-	case 1:
-		blog(LOG_INFO, "not open");
-		ret = iVMR.VBVMR_RunVoicemeeter(voicemeeter_banana);
-		if (ret == 0)
-			return true;
-		ret = iVMR.VBVMR_RunVoicemeeter(voicemeeter_normal);
-		if (ret == 0)
-			return true;
 		break;
+	case 1:
+		blog(LOG_INFO, "attempting to open voicemeeter");
+		ret = iVMR.VBVMR_RunVoicemeeter(voicemeeter_banana);
+		if (ret == 0) {
+			blog(LOG_INFO, "successfully opened banana");
+			break;
+		}
+		ret = iVMR.VBVMR_RunVoicemeeter(voicemeeter_normal);
+		if (ret == 0) {
+			blog(LOG_INFO, "successfully opened basic");
+			break;
+		}
+		blog(LOG_INFO, "failed to open voicemeeter");
+		return false;
 	case -1:
 		blog(LOG_ERROR, "cannot get client");
-		break;
+		return false;
 	case -2:
 		blog(LOG_ERROR, "unexpected login");
+		return false;
+	}
+
+	iVMR.VBVMR_GetVoicemeeterType(&application);
+	switch (application) {
+	case voicemeeter_banana:
+		blog(LOG_INFO, "running voicemeeter banana");
+		break;
+	case voicemeeter_normal:
+		blog(LOG_INFO, "running voicemeeter");
 		break;
 	}
-	return false;
+
+
+
+	return true;
 }
 
 void obs_module_unload()
