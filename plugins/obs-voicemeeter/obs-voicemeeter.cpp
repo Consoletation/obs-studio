@@ -454,10 +454,15 @@ public:
 		int stage = obs_data_get_int(settings, "stage");
 
 		long type;
-		iVMR.VBVMR_GetVoicemeeterType(&type);
+		int ret = iVMR.VBVMR_GetVoicemeeterType(&type);
+		if (ret != 0) {
+			vb_type = 0;
+			return true;
+		}
 		int inputs = 0;
 		int outputs = 0;
 		int total = 0;
+		vb_type = type;
 
 		inputs = validInputs[type];
 		outputs = validOutputs[type];
@@ -473,17 +478,17 @@ public:
 			total = outputs;
 			break;
 		case voicemeeter_main:
-		default:
 			name = "Main ";
 			total = inputs;
 			break;
+		default:
+			return true;
 		};
 
-		int j = 0;
-		int i = 0;
+		int i;
 		
 		for (i = 0; i < total; i++) {
-			obs_property_list_add_int(list, (name + std::to_string(i)).c_str(), j++);
+			obs_property_list_add_int(list, (name + std::to_string(i)).c_str(), i);
 		}
 
 		return true;
@@ -497,7 +502,8 @@ public:
 		do {
 			const char* name = obs_property_name(pn);
 			if (strncmp("route ", name, 6) == 0) {
-				obs_property_list_clear(pn);
+				//obs_property_list_clear(pn);
+				channelsModified(props, pn, settings);
 			}
 		} while (obs_property_next(&pn));
 
@@ -546,7 +552,7 @@ public:
 				obs_module_text(("Route." + std::to_string(i)).c_str()),
 				OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
 			obs_property_set_visible(prop, i < get_audio_channels(_layout));
-			obs_property_set_modified_callback(prop, channelsModified);
+			//obs_property_set_modified_callback(prop, channelsModified);
 		}
 		return props;
 	}
