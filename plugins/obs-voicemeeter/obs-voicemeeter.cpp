@@ -479,7 +479,7 @@ public:
 			break;
 		case voicemeeter_main:
 			name = "Main ";
-			total = inputs;
+			total = outputs;
 			break;
 		default:
 			return true;
