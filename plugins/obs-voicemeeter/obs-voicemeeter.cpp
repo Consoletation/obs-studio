@@ -489,6 +489,18 @@ public:
 		return true;
 	}
 
+	static bool stageChanged(obs_properties_t *props, obs_property_t *list,
+		obs_data_t *settings)
+	{
+		obs_property_t *route[MAX_AUDIO_CHANNELS];
+		for (int i = 0; i < MAX_AV_PLANES; i++) {
+			std::string name = "route " + std::to_string(i);
+			route[i] = obs_properties_get(props, name.c_str());
+			obs_property_list_clear(route[i]);
+		}
+		return true;
+	}
+
 	static bool layoutChanged(obs_properties_t *props, obs_property_t *list,
 			obs_data_t *settings)
 	{
@@ -501,7 +513,6 @@ public:
 			route[i] = obs_properties_get(props, name.c_str());
 			obs_property_set_visible(route[i], i < channels);
 			obs_property_list_clear(route[i]);
-			obs_property_set_modified_callback(route[i], channelsModified);
 		}
 		return true;
 	}
@@ -510,11 +521,12 @@ public:
 	{
 		obs_properties_t *props = obs_properties_create();
 		obs_property_t *prop = nullptr;
-		obs_property_t *stage = obs_properties_add_list(props, "stage", obs_module_text("Stage"), OBS_COMBO_TYPE_LIST,
+		obs_property_t *stageProperty = obs_properties_add_list(props, "stage", obs_module_text("Stage"), OBS_COMBO_TYPE_LIST,
 			OBS_COMBO_FORMAT_INT);
-		obs_property_list_add_int(stage, obs_module_text("Voicemeeter Insert (input)"), 0);
-		obs_property_list_add_int(stage, obs_module_text("Voicemeeter Insert (output)"), 1);
-		obs_property_list_add_int(stage, obs_module_text("Voicemeeter Main"), 2);
+		obs_property_list_add_int(stageProperty, obs_module_text("Voicemeeter Insert (input)"), 0);
+		obs_property_list_add_int(stageProperty, obs_module_text("Voicemeeter Insert (output)"), 1);
+		obs_property_list_add_int(stageProperty, obs_module_text("Voicemeeter Main"), 2);
+		obs_property_set_modified_callback(stageProperty, stageChanged);
 
 		obs_property_t *layoutProperty = obs_properties_add_list(props, "layout", obs_module_text("Speaker Layout"),
 				OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
@@ -525,6 +537,7 @@ public:
 				obs_module_text(("Route." + std::to_string(i)).c_str()),
 				OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
 			obs_property_set_visible(prop, i < get_audio_channels(_layout));
+			obs_property_set_modified_callback(prop, channelsModified);
 		}
 		return props;
 	}
@@ -723,8 +736,7 @@ bool obs_module_load(void)
 			}
 		}
 	}
-	//long opts = VBVMR_AUDIOCALLBACK_IN;//VBVMR_AUDIOCALLBACK_MAIN | VBVMR_AUDIOCALLBACK_IN | VBVMR_AUDIOCALLBACK_OUT;
-	//long opts = VBVMR_AUDIOCALLBACK_MAIN | VBVMR_AUDIOCALLBACK_IN | VBVMR_AUDIOCALLBACK_OUT;
+
 	long opts = VBVMR_AUDIOCALLBACK_IN | VBVMR_AUDIOCALLBACK_OUT | VBVMR_AUDIOCALLBACK_MAIN;
 	char application_name[64] = "obs-voicemeeter";
 	ret = iVMR.VBVMR_AudioCallbackRegister(opts, audioCallback, NULL, application_name);
