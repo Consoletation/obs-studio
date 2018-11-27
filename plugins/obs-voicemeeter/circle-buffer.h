@@ -184,8 +184,6 @@ public:
 				}
 				break;
 			case WAIT_OBJECT_0+1:
-				delete p;
-				return 0;
 			case WAIT_OBJECT_0+2:
 				delete p;
 				return 0;
