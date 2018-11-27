@@ -843,6 +843,9 @@ bool obs_module_load(void)
 	case -2:
 		blog(LOG_ERROR, "unexpected login");
 		return false;
+	default:
+		blog(LOG_ERROR, "unexpected error %i logging in", ret);
+		return false;
 	}
 
 	ret = iVMR.VBVMR_GetVoicemeeterType((long *)&vb_type);
@@ -908,13 +911,13 @@ bool obs_module_load(void)
 	case 0:
 		break;
 	case -1:
-		blog(LOG_ERROR, "Error %i registering audio callback", ret);
+		blog(LOG_ERROR, "error %i registering audio callback", ret);
 		return false;
 	case 1:
-		blog(LOG_ERROR, "Error %i registering audio callback: %s has already registered a callback", ret, application_name);
+		blog(LOG_ERROR, "error %i registering audio callback: %s has already registered a callback", ret, application_name);
 		return false;
 	default:
-		blog(LOG_ERROR, "Unexpected code %i registering audio callback", ret);
+		blog(LOG_ERROR, "unexpected code %i registering audio callback", ret);
 		return false;
 	}
 
