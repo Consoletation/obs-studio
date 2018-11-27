@@ -204,7 +204,7 @@ static std::vector<vb_layout_map> inputMap[4];
 static std::vector<vb_layout_map> outputMap[4];
 static std::vector<vb_layout_map> mainsMap[4];
 
-void makeMap(int mode)
+static void makeMap(int mode)
 {
 	int channel = -1;
 
@@ -232,7 +232,7 @@ void makeMap(int mode)
 	return;
 }
 
-std::string getChannelName(int index, int mode)
+static std::string getChannelName(int index, int mode)
 {
 	std::vector<vb_layout_map>::iterator it;
 	vb_layout_map search = { index, "" };
@@ -352,7 +352,7 @@ static long audioCallback(void *lpUser, long nCommand, void *lpData, long nnn)
 	return 0;
 }
 
-long InitializeDLLInterfaces(void)
+static long InitializeDLLInterfaces(void)
 {
 	char szDllName[1024] = {0};
 	memset(&iVMR, 0, sizeof(T_VBVMR_INTERFACE));
@@ -708,7 +708,7 @@ public:
 		}
 		return props;
 	}
-
+	/* Sends audio data to OBS */
 	void Read(const VBVMR_T_AUDIOBUFFER_TS *buf)
 	{
 		struct obs_source_audio out;
