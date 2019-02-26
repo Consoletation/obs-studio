@@ -142,6 +142,7 @@ static std::vector<int32_t> validOutputs = {0, 16, 40, 64 };
 static std::vector<int32_t> validMains = {0, 28, 62, 98 };
 
 typedef std::pair<speaker_layout, std::string> vb_layout;
+typedef std::pair<speaker_layout, std::vector<std::string>> channel_layout;
 typedef std::pair<int, std::string> vb_layout_map;
 
 static std::vector<vb_layout> inputLayouts[4] = {
@@ -198,11 +199,29 @@ static std::vector<vb_layout> outputLayouts[4] = {
 		{SPEAKERS_7POINT1, "Virtual Output B3"},
 	}
 };
+static std::vector<vb_layout> mainLayouts[4] = {};
+
+static std::vector<channel_layout> channelLayouts = {
+	{SPEAKERS_STEREO, {"(L)", "(R)"}},
+	{SPEAKERS_7POINT1, {"(L)", "(R)", "(C)", "(LFE)", "(SL)", "(SR)",
+		"(BL)", "(BR)"}},
+};
 /*mainLayouts is made by appending outputLayouts to inputLayouts*/
 
 static std::vector<vb_layout_map> inputMap[4];
 static std::vector<vb_layout_map> outputMap[4];
-static std::vector<vb_layout_map> mainsMap[4];
+static std::vector<vb_layout_map> mainMap[4];
+
+static void makeMainLayout(int mode)
+{
+	std::vector<vb_layout> main;
+	main.reserve(inputLayouts[mode].size() + outputLayouts[mode].size());
+	main.insert(main.end(), inputLayouts[mode].begin(),
+			inputLayouts[mode].end());
+	main.insert(main.end(), outputLayouts[mode].begin(),
+			outputLayouts[mode].end());
+	mainLayouts[mode] = main;
+}
 
 static void makeMap(int mode)
 {
@@ -222,11 +241,11 @@ static void makeMap(int mode)
 	channel = -1;
 	for (size_t i = 0; i < inputLayouts[mode].size(); i++) {
 		channel += get_audio_channels(inputLayouts[mode][i].first);
-		mainsMap[mode].push_back({ channel, inputLayouts[mode][i].second });
+		mainMap[mode].push_back({ channel, inputLayouts[mode][i].second });
 	}
 	for (size_t i = 0; i < outputLayouts[mode].size(); i++) {
 		channel += get_audio_channels(outputLayouts[mode][i].first);
-		mainsMap[mode].push_back({ channel, outputLayouts[mode][i].second });
+		mainMap[mode].push_back({ channel, outputLayouts[mode][i].second });
 	}
 
 	return;
@@ -235,6 +254,12 @@ static void makeMap(int mode)
 static std::string getChannelName(int index, int mode)
 {
 	std::vector<vb_layout_map>::iterator it;
+	std::vector<std::string> channels;
+	std::string c = "";
+	ptrdiff_t idx;
+	int layout;
+	int count;
+	int offset;
 	vb_layout_map search = { index, "" };
 	switch (mode) {
 	case voicemeeter_insert_in:
@@ -243,21 +268,54 @@ static std::string getChannelName(int index, int mode)
 		});
 		if (it == inputMap[vb_type].end())
 			return "";
-		return it->second;
+		idx = std::distance(inputMap[vb_type].begin(), it);
+		layout = inputLayouts[vb_type][idx].first;
+		count = get_audio_channels((speaker_layout)layout);
+		offset = (count - 1) - abs(it->first - index);
+		for (size_t i = 0; i < channelLayouts.size(); i++) {
+			if (channelLayouts[i].first == layout) {
+				channels = channelLayouts[i].second;
+				break;
+			}
+		}
+		c = channels[offset];
+		return it->second + " " + c;
 	case voicemeeter_insert_out:
 		it = std::lower_bound(outputMap[vb_type].begin(), outputMap[vb_type].end(), search, [](vb_layout_map left, vb_layout_map right) {
 			return left.first < right.first;
 		});
 		if (it == outputMap[vb_type].end())
 			return "";
-		return it->second;
+		idx = std::distance(outputMap[vb_type].begin(), it);
+		layout = outputLayouts[vb_type][idx].first;
+		count = get_audio_channels((speaker_layout)layout);
+		offset = (count - 1) - abs(it->first - index);
+		for (size_t i = 0; i < channelLayouts.size(); i++) {
+			if (channelLayouts[i].first == layout) {
+				channels = channelLayouts[i].second;
+				break;
+			}
+		}
+		c = channels[offset];
+		return it->second + " " + c;
 	case voicemeeter_main:
-		it = std::lower_bound(mainsMap[vb_type].begin(), mainsMap[vb_type].end(), search, [](vb_layout_map left, vb_layout_map right) {
+		it = std::lower_bound(mainMap[vb_type].begin(), mainMap[vb_type].end(), search, [](vb_layout_map left, vb_layout_map right) {
 			return left.first < right.first;
 		});
-		if (it == mainsMap[vb_type].end())
+		if (it == mainMap[vb_type].end())
 			return "";
-		return it->second;
+		idx = std::distance(outputMap[vb_type].begin(), it);
+		layout = mainLayouts[vb_type][idx].first;
+		count = get_audio_channels((speaker_layout)layout);
+		offset = (count - 1) - abs(it->first - index);
+		for (size_t i = 0; i < channelLayouts.size(); i++) {
+			if (channelLayouts[i].first == layout) {
+				channels = channelLayouts[i].second;
+				break;
+			}
+		}
+		c = channels[offset];
+		return it->second + " " + c;
 	default:
 		break;
 	}
@@ -920,6 +978,11 @@ bool obs_module_load(void)
 		blog(LOG_ERROR, "unexpected code %i registering audio callback", ret);
 		return false;
 	}
+
+	makeMainLayout(0);
+	makeMainLayout(voicemeeter_normal);
+	makeMainLayout(voicemeeter_banana);
+	makeMainLayout(voicemeeter_potato);
 
 	makeMap(0);
 	makeMap(voicemeeter_normal);
