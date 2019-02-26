@@ -9,7 +9,7 @@
 #include "VoicemeeterRemote.h"
 
 OBS_DECLARE_MODULE()
-OBS_MODULE_USE_DEFAULT_LOCALE("rematrix-filter", "en-US")
+OBS_MODULE_USE_DEFAULT_LOCALE("obs-voicemeeter", "en-US")
 
 #define blog(level, msg, ...) blog(level, "obs-voicemeeter: " msg, ##__VA_ARGS__)
 
