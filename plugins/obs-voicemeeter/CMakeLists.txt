@@ -37,6 +37,7 @@ target_link_libraries(obs-voicemeeter
 	libobs
 	"${OBS_FRONTEND_LIB}"
 )
+set_target_properties(obs-voicemeeter PROPERTIES FOLDER "plugins")
 
 install_obs_plugin_with_data(obs-voicemeeter data)
 #install_external_plugin_with_data(obs-voicemeeter data)
