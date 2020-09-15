@@ -22,3 +22,6 @@
 [submodule "plugins/obs-screenshot-filter"]
 	path = plugins/obs-screenshot-filter
 	url = https://github.com/Consoletation/obs-screenshot-filter.git
+[submodule "plugins/obs-websocket"]
+	path = plugins/obs-websocket
+	url = https://github.com/Consoletation/obs-websocket.git

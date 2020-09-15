@@ -168,6 +168,7 @@ file(GLOB QT_DEBUG_STYLES_BIN_FILES
 file(GLOB QT_DEBUG_ICONENGINE_BIN_FILES
 	"${Qt5Core_DIR}/../../../plugins/iconengines/qsvgicond.dll")
 file(GLOB QT_DEBUG_IMAGEFORMATS_BIN_FILES
+	"${Qt5Core_DIR}/../../../plugins/imageformats/qjpegd.dll"
 	"${Qt5Core_DIR}/../../../plugins/imageformats/qsvgd.dll")
 
 
@@ -186,6 +187,7 @@ file(GLOB QT_STYLES_BIN_FILES
 file(GLOB QT_ICONENGINE_BIN_FILES
 	"${Qt5Core_DIR}/../../../plugins/iconengines/qsvgicon.dll")	
 file(GLOB QT_IMAGEFORMATS_BIN_FILES
+	"${Qt5Core_DIR}/../../../plugins/imageformats/qjpeg.dll"
 	"${Qt5Core_DIR}/../../../plugins/imageformats/qsvg.dll")	
 
 file(GLOB QT_ICU_BIN_FILES
