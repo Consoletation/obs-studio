@@ -19,3 +19,6 @@
 [submodule "plugins/obs-move-transition"]
 	path = plugins/move-transition
 	url = https://github.com/Consoletation/obs-move-transition.git
+[submodule "plugins/obs-screenshot-filter"]
+	path = plugins/obs-screenshot-filter
+	url = https://github.com/Consoletation/obs-screenshot-filter.git
