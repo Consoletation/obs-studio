@@ -28,3 +28,6 @@
 [submodule "plugins/streamfx"]
 	path = plugins/streamfx
 	url = https://github.com/Consoletation/obs-StreamFX.git
+[submodule "plugins/obs-shaderfilter"]
+	path = plugins/obs-shaderfilter
+	url = https://github.com/Consoletation/obs-shaderfilter.git
