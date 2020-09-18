@@ -31,3 +31,6 @@
 [submodule "plugins/obs-shaderfilter"]
 	path = plugins/obs-shaderfilter
 	url = https://github.com/Consoletation/obs-shaderfilter.git
+[submodule "plugins/obs-asio"]
+	path = plugins/obs-asio
+	url = https://github.com/Consoletation/obs-asio.git
