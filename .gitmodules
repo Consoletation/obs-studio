@@ -25,3 +25,6 @@
 [submodule "plugins/obs-websocket"]
 	path = plugins/obs-websocket
 	url = https://github.com/Consoletation/obs-websocket.git
+[submodule "plugins/streamfx"]
+	path = plugins/streamfx
+	url = https://github.com/Consoletation/obs-StreamFX.git
